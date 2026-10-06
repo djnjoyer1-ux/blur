@@ -1,0 +1,55 @@
+break
+import numpy as np
+from PIL import ImageGrab, Image
+import cv2
+import win32gui
+import win32api
+import win32con
+
+# Load pre-trained face detector
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def blur_faces(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+    for (x, y, w, h) in faces:
+        face_region = img[y:y+h, x:x+w]
+        blurred_face = cv2.GaussianBlur(face_region, (99, 99), 30)
+        img[y:y+h, x:x+w] = blurred_face
+
+    return img
+
+def set_transparency(hwnd, alpha):
+    hwnd = win32gui.GetForegroundWindow()
+    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
+                           win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_LAYERED)
+    win32gui.SetLayeredWindowAttributes(hwnd, win32api.RGB(0, 0, 0), alpha, win32con.LWA_ALPHA)
+
+def main():
+    while True:
+        # Capture screen
+        screenshot = ImageGrab.grab()
+        screenshot = np.array(screenshot)
+        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
+
+        # Blur faces
+        blurred_image = blur_faces(screenshot)
+
+        # Convert back to PIL image for overlay
+        blurred_image_pil = Image.fromarray(cv2.cvtColor(blurred_image, cv2.COLOR_BGR2RGB))
+
+        # Set transparency for overlay window
+        set_transparency(win32gui.GetForegroundWindow(), 200)
+
+        # Display overlay
+        blurred_image_pil.show()
+
+        # Press 'q' to quit
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
